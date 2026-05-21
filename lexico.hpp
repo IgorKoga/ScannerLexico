@@ -5,8 +5,8 @@
 #include <unordered_map>
 
 enum class TokenType {//Todos os tipos de token reconhecidos pelo analisador léxico.
-  T_INT, T_IF, T_ELSE, T_WHILE, T_PRINTLN, T_EXCL, // Palavras reservadas EXCL representa ! para o println!
-  T_ID, T_NUM, // Identificadores e números
+  T_INT, T_IF, T_ELSE, T_WHILE, T_PRINTLN, T_EXCL, T_FN, // Palavras reservadas
+  T_ID, T_NUM, T_STRING, // Identificadores, números e strings
   T_ASSIGN, T_EQ, // Operadores de atribuição e comparação
   T_PLUS, T_MINUS, T_MULT, T_DIV, // Operadores aritméticos
   T_LT, T_GT,  // Operadores relacionais
@@ -35,10 +35,6 @@ private:
   // associa texto (ex.: "if") ao tipo do token correspondente.
   std::unordered_map<std::string, TokenType> keywords;
 
-public:
-  // Construtor do scanner.
-  // Recebe o código-fonte e inicializa os dados internos.
-
   //definição apenas das assinaturas
   char peek();
   char next();
@@ -46,6 +42,7 @@ public:
   void skipComment();
   Token scanNumber(char start);
   Token scanIdentifier(char start);
+  Token scanString(); // Método para ler strings
 
 public:
     Scanner(std::string source);

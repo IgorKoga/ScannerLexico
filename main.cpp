@@ -1,22 +1,32 @@
 #include <iostream>
 #include <string>
-#include "lexico.cpp"
+#include "lexico.hpp"
+#include <fstream> //lê arquivos
+#include <sstream> ///lê o arquivo como string
+using namespace std;
 
 int main() {
 
-  // Código-fonte de exemplo que será analisado.
-  // A string raw (R"( ... )") permite escrever o texto em múltiplas linhas.
-  string code = R"(
+ // 1. Nome do arquivo fixo
+ string folder = "codigoRust/"; //endereço padrão;
+ string fileName;
+ cout << "Digite o nome/endereco do arquivo: ";
+ cin >> fileName;
+ fileName = folder + fileName; //concatena o endereço padrão com o nome do arquivo
 
-int soma = 10 + 20;
+ // 2. Tenta abrir o arquivo
+ ifstream file(fileName);
+ if (!file.is_open()) {
+     cerr << "Erro: O arquivo '" << fileName << "' nao foi encontrado na pasta!" << endl;
+     return 1;
+ }
 
-if (soma == 30) {
-print(soma);
-}
+ // 3. Lê o conteúdo
+ stringstream buffer;
+ buffer << file.rdbuf();
+ string code = buffer.str();
 
-// comentario ignorado)";
-
-  // Cria o scanner com o código de entrada
+// Cria o scanner com o código de entrada
   Scanner scanner(code);
 
   try {
