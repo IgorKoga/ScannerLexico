@@ -50,22 +50,42 @@ Scanner::Scanner(string source) : input(source), pos(0), line(1) {
       next();
     }
   }
-  // Lê um número inteiro a partir do primeiro dígito já encontrado.
-  Token Scanner::scanNumber(char start) {
 
-    string buffer;
-
-    // Coloca o primeiro dígito no buffer
-    buffer += start;
-
-    // Continua enquanto encontrar outros dígitos
-    while (isdigit(peek())) {
-      buffer += next();
+  // Ignora comentários multilinha (/* ... */)
+  void Scanner::skipMultilineComment() {
+    while (peek() != '\0') {
+      if (peek() == '\n') line++;
+      
+      if (peek() == '*') {
+        next();
+        if (peek() == '/') {
+          next(); // Consome a barra final
+          return;
+        }
+      } else {
+        next();
+      }
     }
-    // Retorna um token numérico
-    return Token(TokenType::T_NUM, buffer, line);
+    throw runtime_error("Erro Lexico: Comentario multilinha nao fechado na linha " + to_string(line));
   }
 
+  // Lê um número inteiro/float a partir do primeiro dígito já encontrado.
+  Token Scanner::scanNumber(char start) {
+    string buffer;
+    buffer += start;
+    bool isFloat = false;
+
+    while (isdigit(peek()) || peek() == '.') {
+      if (peek() == '.') {
+        if (isFloat) throw runtime_error("Erro Lexico: Multiplos pontos decimais na linha " + to_string(line));
+        isFloat = true;
+      }
+      buffer += next();
+    }
+    
+    return Token(isFloat ? TokenType::T_FLOAT : TokenType::T_NUM, buffer, line);
+  }
+  
   // Lê identificadores ou palavras reservadas.
   // Um identificador pode conter letras, números e underscore.
   Token Scanner::scanIdentifier(char start) {
@@ -155,7 +175,11 @@ Scanner::Scanner(string source) : input(source), pos(0), line(1) {
         skipComment();      // ignora o restante da linha
         return nextToken(); // busca o próximo token válido
       }
-
+      if (peek() == '*') { // Comentário multilinha (/*)
+      next();
+      skipMultilineComment();
+      return nextToken();
+      }
       return Token(TokenType::T_DIV, "/", line);
 
     case '=':
@@ -223,6 +247,8 @@ string tokenTypeToString(TokenType type) {
     return "T_ID";
     case TokenType::T_NUM:
     return "T_NUM";
+    case TokenType::T_FLOAT:
+    return "T_FLOAT";
     case TokenType::T_STRING:
     return "T_STRING";
     case TokenType::T_ASSIGN:
