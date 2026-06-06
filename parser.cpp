@@ -66,32 +66,190 @@ void Parser::error(const Token &token, const std::string &message) {
 // -----------------------------------------------------------------------------
 
 // Programa inteiro → lista de declarações/expressões
-std::unique_ptr<ProgramNode> Parser::parseProgram();
+std::unique_ptr<ProgramNode> Parser::parseProgram() {
+    std::vector<std::unique_ptr<StatementNode>> statements;
+    while (!isAtEnd()) {
+        statements.push_back(parseStatement());
+    }
+    return std::make_unique<ProgramNode>(std::move(statements));
+}
 
 // Declaração ou comando (Statement)
-std::unique_ptr<StatementNode> Parser::parseStatement();
+std::unique_ptr<StatementNode> Parser::parseStatement() {
+    Token tk = peek();
+    switch (tk.type) {
+        case TokenType::T_LET:
+        case TokenType::T_MUT:
+        case TokenType::T_INT:
+            return parseDeclaration();
+        case TokenType::T_ID:
+            // Could be assignment
+            return parseAssignment();
+        case TokenType::T_PRINTLN:
+            return parsePrint();
+        case TokenType::T_IF:
+            return parseIf();
+        case TokenType::T_WHILE:
+            return parseWhile();
+        default:
+            error(tk, "Comando ou declaração inesperado.");
+            return nullptr; // Unreachable
+    }
+}
 
 // Declaração de variável (let, mut, int …)
-std::unique_ptr<DeclarationNode> Parser::parseDeclaration();
+std::unique_ptr<DeclarationNode> Parser::parseDeclaration() {
+    // Tipo da variável
+    Token typeTok = advance(); // let, mut, ou int
+    std::string varType;
+    if (typeTok.type == TokenType::T_LET) varType = "let";
+    else if (typeTok.type == TokenType::T_MUT) varType = "mut";
+    else varType = "int";
+    // Identificador
+    Token idTok = match(TokenType::T_ID, "Esperado identificador após tipo de variável.");
+    std::string identifier = idTok.lexeme;
+    // Opcional inicialização
+    std::unique_ptr<ExpressionNode> init = nullptr;
+    if (peek().type == TokenType::T_ASSIGN) {
+        match(TokenType::T_ASSIGN, "Esperado '=' após identificador.");
+        init = parseExpression();
+    }
+    // Consome ponto e vírgula se presente
+    if (peek().type == TokenType::T_SEMICOLON) advance();
+    return std::make_unique<DeclarationNode>(varType, identifier, std::move(init));
+}
 
 // Atribuição (identificador = expressão)
-std::unique_ptr<AssignmentNode> Parser::parseAssignment();
+std::unique_ptr<AssignmentNode> Parser::parseAssignment() {
+    Token idTok = match(TokenType::T_ID, "Esperado identificador no início da atribuição.");
+    match(TokenType::T_ASSIGN, "Esperado '=' na atribuição.");
+    auto expr = parseExpression();
+    if (peek().type == TokenType::T_SEMICOLON) advance();
+    return std::make_unique<AssignmentNode>(idTok.lexeme, std::move(expr));
+}
 
 // Comando de impressão (println! …)
-std::unique_ptr<PrintNode> Parser::parsePrint();
+std::unique_ptr<PrintNode> Parser::parsePrint() {
+    match(TokenType::T_PRINTLN, "Esperado 'println!'.");
+    match(TokenType::T_LPAREN, "Esperado '(' após println!.");
+    auto expr = parseExpression();
+    match(TokenType::T_RPAREN, "Esperado ')' após expressão.");
+    if (peek().type == TokenType::T_SEMICOLON) advance();
+    return std::make_unique<PrintNode>(std::move(expr));
+}
 
 // Estrutura condicional
-std::unique_ptr<IfNode> Parser::parseIf();
+std::unique_ptr<IfNode> Parser::parseIf() {
+    match(TokenType::T_IF, "Esperado 'if'.");
+    match(TokenType::T_LPAREN, "Esperado '(' após if.");
+    auto condition = parseExpression();
+    match(TokenType::T_RPAREN, "Esperado ')' após condição.");
+    // Bloco then
+    match(TokenType::T_LBRACE, "Esperado '{' para bloco then.");
+    std::vector<std::unique_ptr<StatementNode>> thenBranch;
+    while (peek().type != TokenType::T_RBRACE && !isAtEnd()) {
+        thenBranch.push_back(parseStatement());
+    }
+    match(TokenType::T_RBRACE, "Esperado '}' ao final do bloco then.");
+    // Opcional else
+    std::vector<std::unique_ptr<StatementNode>> elseBranch;
+    if (peek().type == TokenType::T_ELSE) {
+        advance(); // consume else
+        match(TokenType::T_LBRACE, "Esperado '{' para bloco else.");
+        while (peek().type != TokenType::T_RBRACE && !isAtEnd()) {
+            elseBranch.push_back(parseStatement());
+        }
+        match(TokenType::T_RBRACE, "Esperado '}' ao final do bloco else.");
+    }
+    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+}
 
 // Laço while
-std::unique_ptr<WhileNode> Parser::parseWhile();
+std::unique_ptr<WhileNode> Parser::parseWhile() {
+    match(TokenType::T_WHILE, "Esperado 'while'.");
+    match(TokenType::T_LPAREN, "Esperado '(' após while.");
+    auto condition = parseExpression();
+    match(TokenType::T_RPAREN, "Esperado ')' após condição.");
+    match(TokenType::T_LBRACE, "Esperado '{' para bloco while.");
+    std::vector<std::unique_ptr<StatementNode>> body;
+    while (peek().type != TokenType::T_RBRACE && !isAtEnd()) {
+        body.push_back(parseStatement());
+    }
+    match(TokenType::T_RBRACE, "Esperado '}' ao final do bloco while.");
+    return std::make_unique<WhileNode>(std::move(condition), std::move(body));
+}
 
-// Expressão ⇐→ nível de prioridade (operadores lógicos/aritméticos)
-std::unique_ptr<ExpressionNode> Parser::parseExpression();
-std::unique_ptr<ExpressionNode> Parser::parseEquality();
-std::unique_ptr<ExpressionNode> Parser::parseComparison();
-std::unique_ptr<ExpressionNode> Parser::parseTerm();   // + e -
-std::unique_ptr<ExpressionNode> Parser::parseFactor(); // * e /
-std::unique_ptr<ExpressionNode> Parser::parseUnary();  // - e !
-std::unique_ptr<ExpressionNode>
-Parser::parsePrimary(); // literals, id, parênteses
+// ------------------- Expression Parsing -------------------
+
+std::unique_ptr<ExpressionNode> Parser::parseExpression() {
+    return parseEquality();
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseEquality() {
+    auto expr = parseComparison();
+    while (peek().type == TokenType::T_EQ) {
+        Token op = advance();
+        auto right = parseComparison();
+        expr = std::make_unique<BinaryOpNode>(op.lexeme, std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseComparison() {
+    auto expr = parseTerm();
+    while (peek().type == TokenType::T_LT || peek().type == TokenType::T_GT) {
+        Token op = advance();
+        auto right = parseTerm();
+        expr = std::make_unique<BinaryOpNode>(op.lexeme, std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseTerm() {
+    auto expr = parseFactor();
+    while (peek().type == TokenType::T_PLUS || peek().type == TokenType::T_MINUS) {
+        Token op = advance();
+        auto right = parseFactor();
+        expr = std::make_unique<BinaryOpNode>(op.lexeme, std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseFactor() {
+    auto expr = parseUnary();
+    while (peek().type == TokenType::T_MULT || peek().type == TokenType::T_DIV) {
+        Token op = advance();
+        auto right = parseUnary();
+        expr = std::make_unique<BinaryOpNode>(op.lexeme, std::move(expr), std::move(right));
+    }
+    return expr;
+}
+
+std::unique_ptr<ExpressionNode> Parser::parseUnary() {
+    if (peek().type == TokenType::T_MINUS || peek().type == TokenType::T_EXCL) {
+        Token op = advance();
+        auto right = parseUnary();
+        return std::make_unique<BinaryOpNode>(op.lexeme, nullptr, std::move(right));
+    }
+    return parsePrimary();
+}
+
+std::unique_ptr<ExpressionNode> Parser::parsePrimary() {
+    Token tk = advance();
+    switch (tk.type) {
+        case TokenType::T_NUM:
+        case TokenType::T_FLOAT:
+        case TokenType::T_STRING:
+            return std::make_unique<NumberNode>(tk.lexeme);
+        case TokenType::T_ID:
+            return std::make_unique<VariableNode>(tk.lexeme);
+        case TokenType::T_LPAREN: {
+            auto expr = parseExpression();
+            match(TokenType::T_RPAREN, "Esperado ')' após expressão.");
+            return expr;
+        }
+        default:
+            error(tk, "Token inesperado em expressão primária.");
+            return nullptr; // Unreachable
+    }
+}

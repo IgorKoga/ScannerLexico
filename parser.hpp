@@ -4,9 +4,8 @@
 #include "ast.hpp"
 #include "lexico.hpp"
 #include <memory>
-#include <string>
+#include <cstring>
 #include <vector>
-
 
 class Parser {
 private:
@@ -24,21 +23,36 @@ private:
   // Verifica se chegamos ao fim dos tokens
   bool isAtEnd() const;
 
-  // Avança para o próximo token e o retorna
+  // Avança para o próximo token e o devolve
   Token advance();
 
-  // Verifica se o token atual é do tipo esperado.
-  // Se for, consome e avança. Se não, lança erro com a mensagem fornecida.
+  // Verifica se o token atual tem o tipo esperado; consome ou lança erro
   Token match(TokenType type, const std::string &errorMessage);
 
-  // Lança um erro sintático formatado com a linha correspondente
+  // Lança um erro sintático formatado com a linha do token
   void error(const Token &token, const std::string &message);
 
 public:
-  // O construtor recebe a lista de tokens do scanner
+  // Construtor recebe a lista de tokens do scanner
   Parser(const std::vector<Token> &tokenList);
 
-  // --- Métodos de Parsing (declararemos no Passo 7) ---
+  // --- Métodos de Parsing ---
+  std::unique_ptr<ProgramNode> parseProgram();
+  std::unique_ptr<StatementNode> parseStatement();
+  std::unique_ptr<DeclarationNode> parseDeclaration();
+  std::unique_ptr<AssignmentNode> parseAssignment();
+  std::unique_ptr<PrintNode> parsePrint();
+  std::unique_ptr<IfNode> parseIf();
+  std::unique_ptr<WhileNode> parseWhile();
+
+  // Expressão – nível de precedência
+  std::unique_ptr<ExpressionNode> parseExpression();
+  std::unique_ptr<ExpressionNode> parseEquality();
+  std::unique_ptr<ExpressionNode> parseComparison();
+  std::unique_ptr<ExpressionNode> parseTerm();
+  std::unique_ptr<ExpressionNode> parseFactor();
+  std::unique_ptr<ExpressionNode> parseUnary();
+  std::unique_ptr<ExpressionNode> parsePrimary();
 };
 
 #endif // PARSER_HPP
