@@ -1,14 +1,17 @@
 #include "parser.hpp"
 #include <iostream>
 
+//Inicializa o parser
 Parser::Parser(Scanner& scan) : scanner(scan), currentToken(TokenType::T_EOF, "", 0) {
-    advance(); // 
+    advance(); //avança para o primeiro token
 }
 
+//Avança para o próximo token
 void Parser::advance() {
     currentToken = scanner.nextToken();
 }
 
+//Verifica se o token atual é do tipo esperado e avança se for
 bool Parser::match(TokenType expected) {
     if (currentToken.type == expected) {
         advance();
@@ -17,6 +20,7 @@ bool Parser::match(TokenType expected) {
     return false;
 }
 
+//Consome o token atual se for do tipo esperado, senão lança um erro
 void Parser::consume(TokenType expected, const std::string& errorMessage) {
     if (currentToken.type == expected) {
         advance();
@@ -25,10 +29,12 @@ void Parser::consume(TokenType expected, const std::string& errorMessage) {
     }
 }
 
+    //Lança um erro sintático com a mensagem fornecida
 void Parser::error(const std::string& message) {
     throw std::runtime_error("Erro Sintatico na linha " + std::to_string(currentToken.line) + ": " + message);
 }
 
+//Sincroniza o parser após um erro, avançando até encontrar um token válido
 void Parser::synchronize() {
     advance();
     while (currentToken.type != TokenType::T_EOF) {
@@ -48,6 +54,7 @@ void Parser::synchronize() {
     }
 }
 
+//Analisa o programa inteiro
 std::unique_ptr<Program> Parser::parseProgram() {
     auto program = std::make_unique<Program>();
     while (currentToken.type != TokenType::T_EOF) {
@@ -61,6 +68,7 @@ std::unique_ptr<Program> Parser::parseProgram() {
     return program;
 }
 
+//Analisa um bloco de código
 std::unique_ptr<BlockStmt> Parser::parseBlock() {
     consume(TokenType::T_LBRACE, "Esperado '{' no inicio do bloco.");
     auto block = std::make_unique<BlockStmt>();
@@ -71,6 +79,7 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
     return block;
 }
 
+    //Analisa uma instrução
 std::unique_ptr<Statement> Parser::parseStatement() {
     if (currentToken.type == TokenType::T_LET) return parseDeclaration();
     if (currentToken.type == TokenType::T_PRINTLN) return parsePrintStmt();
@@ -82,6 +91,7 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     return parseAssignment();
 }
 
+    //Analisa uma declaração
 std::unique_ptr<Statement> Parser::parseDeclaration() {
     consume(TokenType::T_LET, "Esperado 'let'.");
     
@@ -101,7 +111,7 @@ std::unique_ptr<Statement> Parser::parseDeclaration() {
     
     return std::make_unique<LetDeclStmt>(varName, isMut, std::move(initExpr));
 }
-
+    //Analisa uma atribuição
 std::unique_ptr<Statement> Parser::parseAssignment() {
     std::string varName = currentToken.lexeme;
     consume(TokenType::T_ID, "Esperado identificador para atribuicao ou instrucao valida.");
@@ -113,6 +123,7 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
     return std::make_unique<AssignmentStmt>(varName, std::move(expr));
 }
 
+    //Analisa uma instrução de impressão
 std::unique_ptr<Statement> Parser::parsePrintStmt() {
     consume(TokenType::T_PRINTLN, "Esperado 'println'.");
     consume(TokenType::T_EXCL, "Esperado '!' apos println.");
@@ -132,6 +143,7 @@ std::unique_ptr<Statement> Parser::parsePrintStmt() {
     return std::make_unique<PrintlnStmt>(std::move(args));
 }
 
+    //Analisa uma instrução condicional
 std::unique_ptr<Statement> Parser::parseIfStmt() {
     consume(TokenType::T_IF, "Esperado 'if'.");
     
@@ -146,6 +158,7 @@ std::unique_ptr<Statement> Parser::parseIfStmt() {
     return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
 }
 
+    //Analisa uma instrução while
 std::unique_ptr<Statement> Parser::parseWhileStmt() {
     consume(TokenType::T_WHILE, "Esperado 'while'.");
     
@@ -155,6 +168,7 @@ std::unique_ptr<Statement> Parser::parseWhileStmt() {
     return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
 }
 
+    //Analisa uma declaração de função 
 std::unique_ptr<Statement> Parser::parseFnDecl() {
     consume(TokenType::T_FN, "Esperado 'fn'.");
     
@@ -162,7 +176,6 @@ std::unique_ptr<Statement> Parser::parseFnDecl() {
     consume(TokenType::T_ID, "Esperado nome da funcao.");
     
     consume(TokenType::T_LPAREN, "Esperado '(' apos nome da funcao.");
-    // Simplificacao: nao estamos tratando argumentos na funcao por enquanto
     consume(TokenType::T_RPAREN, "Esperado ')' apos argumentos da funcao.");
     
     auto body = parseBlock();
@@ -170,12 +183,12 @@ std::unique_ptr<Statement> Parser::parseFnDecl() {
     return std::make_unique<FnDeclStmt>(name, std::move(body));
 }
 
-// Expr -> Comparison
+    //Analisa uma expressão
 std::unique_ptr<Expr> Parser::parseExpression() {
     return parseComparison();
 }
 
-// Comparison -> Term ( ("<" | ">" | "==") Term )*
+    //Analisa uma comparação
 std::unique_ptr<Expr> Parser::parseComparison() {
     auto expr = parseTerm();
     
@@ -192,7 +205,7 @@ std::unique_ptr<Expr> Parser::parseComparison() {
     return expr;
 }
 
-// Term -> Factor ( ("+" | "-") Factor )*
+    // Analisa soma e subtração, mas primeiro tenta ler multiplicações para ordem de operações
 std::unique_ptr<Expr> Parser::parseTerm() {
     auto expr = parseFactor();
     
@@ -208,7 +221,8 @@ std::unique_ptr<Expr> Parser::parseTerm() {
     return expr;
 }
 
-// Factor -> NUMBER | FLOAT | STRING | ID | "(" Expr ")"
+    //Analisa fator (função responsável por analisar números, strings, identificadores e parênteses)
+    //Se achar parenteses resolve primeiro
 std::unique_ptr<Expr> Parser::parseFactor() {
     if (currentToken.type == TokenType::T_NUM) {
         auto expr = std::make_unique<NumberExpr>(currentToken.lexeme);

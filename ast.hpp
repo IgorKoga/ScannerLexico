@@ -171,7 +171,7 @@ public:
 
 // Nó raiz do programa
 class Program : public ASTNode { //representa o programa inteiro
-    std::vector<std::unique_ptr<Statement>> statements; //vetor de instruções
+    std::vector<std::unique_ptr<Statement>> statements; //vetor de instruções do programa
 public:
     void addStatement(std::unique_ptr<Statement> stmt) { statements.push_back(std::move(stmt)); }
     std::string toJson() const override { //converte o programa inteiro para json
