@@ -112,7 +112,6 @@ public:
 class BlockStmt : public Statement { //representa um bloco de código
     std::vector<std::unique_ptr<Statement>> statements; //vetor de instruções tudo que está dentro de {}
 public:
-    std::vector<std::unique_ptr<Statement>> statements;
 
     void addStatement(std::unique_ptr<Statement> stmt) {
         statements.push_back(std::move(stmt));
