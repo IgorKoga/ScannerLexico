@@ -10,6 +10,7 @@
 
 #include <fstream> // lê arquivos
 #include <sstream> // lê o arquivo como string
+#include <limits>  // necessário para limpar o buffer do cin
 using namespace std;
 
 int main(int argc, char *argv[]) {
@@ -38,6 +39,9 @@ int main(int argc, char *argv[]) {
   if (!file.is_open()) {
     cerr << "Erro: O arquivo '" << fileName << "' nao foi encontrado na pasta!"
          << endl;
+    cout << "\nPressione Enter para fechar a janela..." << endl;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
     return 1;
   }
 
@@ -106,6 +110,10 @@ int main(int argc, char *argv[]) {
     // Caso ocorra erro, a mensagem será exibida aqui
     cerr << e.what() << endl;
   }
+
+  cout << "\nPressione Enter para fechar a janela..." << endl;
+  cin.ignore(numeric_limits<streamsize>::max(), '\n');
+  cin.get();
 
   return 0;
 }
